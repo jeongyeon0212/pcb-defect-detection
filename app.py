@@ -5,12 +5,30 @@ from torchvision import models, transforms
 from PIL import Image
 import numpy as np
 import cv2
+import os
+import gdown
 
 # 페이지 설정
 st.set_page_config(page_title="PCB 결함 검출 AI", layout="wide")
 st.title("🔍 PCB 결함 자동 검출 시스템 (+Grad-CAM)")
 
-# [Grad-CAM 로직] AI가 주목한 위치를 계산합니다.
+# [핵심] 구글 드라이브에서 모델 다운로드 함수
+@st.cache_resource
+def download_model():
+    file_id = '1RSoxruMpDKfCsykVfrze2Ct4_nFF_Lt7'
+    url = f'https://drive.google.com/uc?id={file_id}'
+    output = 'pcb_model.pth'
+    
+    if not os.path.exists(output):
+        with st.spinner('구글 드라이브에서 AI 모델을 불러오는 중입니다... (최초 1회)'):
+            gdown.download(url, output, quiet=False)
+    
+    m = models.resnet18(pretrained=False)
+    m.fc = nn.Linear(m.fc.in_features, 2)
+    m.load_state_dict(torch.load(output, map_location='cpu'))
+    return m
+
+# Grad-CAM 로직
 def get_gradcam(model, img_tensor, label_idx):
     model.eval()
     target_layer = model.layer4[-1]
@@ -36,15 +54,13 @@ def get_gradcam(model, img_tensor, label_idx):
     h1.remove(); h2.remove()
     return heatmap
 
-# 모델 로드 (가중치 파일 연결)
-@st.cache_resource
-def load_model():
-    m = models.resnet18(pretrained=False)
-    m.fc = nn.Linear(m.fc.in_features, 2)
-    m.load_state_dict(torch.load('pcb_model.pth', map_location='cpu'))
-    return m
+# 모델 로드
+try:
+    model = download_model()
+except Exception as e:
+    st.error(f"모델을 불러오는데 실패했습니다. 공유 설정을 확인해주세요: {e}")
+    st.stop()
 
-model = load_model()
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
@@ -58,7 +74,6 @@ if uploaded_file:
     img_tensor = transform(image).unsqueeze(0)
     img_tensor.requires_grad = True
     
-    # AI 판독
     output = model(img_tensor)
     probs = torch.nn.functional.softmax(output, dim=1)
     conf, pred = torch.max(probs, 1)
@@ -75,7 +90,6 @@ if uploaded_file:
         st.markdown(f"<h2 style='color: {color};'>{res}</h2>", unsafe_allow_html=True)
         st.metric("신뢰도 (Confidence)", f"{conf.item()*100:.2f}%")
         
-        # Grad-CAM 결과 출력
         heatmap = get_gradcam(model, img_tensor, pred.item())
         img_np = np.array(image.resize((224, 224)))
         heatmap = cv2.applyColorMap(np.uint8(255 * cv2.resize(heatmap, (224, 224))), cv2.COLORMAP_JET)
