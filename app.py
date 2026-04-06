@@ -1,4 +1,5 @@
 # [수정된 판독 로직]
+# 주의: 이 코드 윗부분에 conf와 pred를 생성하는 모델 예측 코드가 있어야 합니다.
 conf_value = conf.item() * 100
 
 if conf_value < 65.0:  # 신뢰도가 65% 미만인 경우
@@ -14,10 +15,10 @@ if conf_value < 65.0:  # 신뢰도가 65% 미만인 경우
         </div>
         """, unsafe_allow_html=True)
     
-if st.button("다시 업로드하기"):
-    st.rerun() # 화면 초기화
+    if st.button("다시 업로드하기"):
+        st.rerun()  # 화면 초기화
 
-else: # 신뢰도가 높을 때만 결과 표시
+else:  # 신뢰도가 높을 때만 결과 표시
     if pred.item() == 1:
         res_label, res_color, res_icon = "⚠️ 결함 발견 (Defect)", "#E53935", "🚫"
     else:
@@ -26,5 +27,3 @@ else: # 신뢰도가 높을 때만 결과 표시
     st.markdown(f'<p class="result-label" style="color: {res_color};">{res_icon} {res_label}</p>', unsafe_allow_html=True)
     st.metric(label="AI 신뢰도", value=f"{conf_value:.2f}%")
     st.progress(conf.item())
-    
-# ... (이하 생략) ...
