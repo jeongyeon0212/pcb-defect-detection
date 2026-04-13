@@ -95,15 +95,28 @@ if model:
         with col2:
             st.subheader("AI 판독 결과")
             
-            if conf_value < 65.0:
-                st.error("⚠️ 판독 불충분 (Low Confidence)")
-                st.info(f"다시 촬영 후 업로드 해주세요.")
-            else:
-                res = "⚠️ 결함 발견 (Defect)" if pred.item() == 1 else "✅ 정상 (Normal)"
-                color = "#E53935" if pred.item() == 1 else "#43A047"
-                st.markdown(f"<h2 style='color: {color};'>{res}</h2>", unsafe_allow_html=True)
-                st.metric("신뢰도 (Confidence)", f"{conf_value:.2f}%")
-                st.progress(conf.item())
+            # [수정된 판독 로직]
+        if conf_value < 70.0 and not st.session_state.retry_done:
+            # 첫 번째 저신뢰도 발생 시: 경고만 띄우고 결과 안 보여줌
+            st.error("⚠️ 판독 불충분 (Low Confidence)")
+            st.warning(f"현재 신뢰도가 {conf_value:.1f}%로 낮습니다. 사진을 더 가까이, 선명하게 찍어 다시 업로드해 주세요.")
+            
+            if st.button("무시하고 결과 바로 보기"):
+                st.session_state.retry_done = True
+                st.rerun() # 다시 실행해서 아래 else문으로 진입하게 함
+        
+        else:
+            # 신뢰도가 높거나, 사용자가 '무시하고 보기'를 눌렀을 때만 결과 출력
+            res = "⚠️ 결함 발견 (Defect)" if pred.item() == 1 else "✅ 정상 (Normal)"
+            color = "#E53935" if pred.item() == 1 else "#43A047"
+            
+            st.markdown(f"<h2 style='color: {color};'>{res}</h2>", unsafe_allow_html=True)
+            st.metric("신뢰도 (Confidence)", f"{conf_value:.2f}%")
+            st.progress(conf.item())
+            
+            # 결과 출력 후에는 다시 초기화 (다음 사진을 위해)
+            st.session_state.retry_done = False
+
 
                 # Grad-CAM 시각화
                 heatmap = get_gradcam(model, img_tensor, pred.item())
