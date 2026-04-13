@@ -108,4 +108,4 @@ if model:
                 overlay = cv2.addWeighted(img_np, 0.6, heatmap_color, 0.4, 0)
                 
                 st.write("---")
-                st.subheader("판단 근거
+                st.subheader("판단 근거 시각화 (Grad-CAM)")
