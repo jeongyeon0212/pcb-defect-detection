@@ -6,12 +6,13 @@ from PIL import Image
 import numpy as np
 import cv2
 import os
+import gdown  # 1. import는 맨 위로 올렸습니다.
 
 # 페이지 설정
 st.set_page_config(page_title="PCB 결함 검출 AI", layout="wide")
 st.title("🔍 PCB 결함 자동 검출 시스템 (+Grad-CAM)")
 
-# [Grad-CAM 로직]
+# [Grad-CAM 로직] 
 def get_gradcam(model, img_tensor, label_idx):
     model.eval()
     target_layer = model.layer4[-1]
@@ -37,42 +38,32 @@ def get_gradcam(model, img_tensor, label_idx):
     h1.remove(); h2.remove()
     return heatmap
 
-# 모델 로드 (파일 유무 체크 추가)
-@st.cache_resource
-import gdown
-
-# 모델 로드 (구글 드라이브에서 다운로드 로직 추가)
+# [모델 로드 로직] 구글 드라이브 다운로드 포함
 @st.cache_resource
 def load_model():
     model_path = 'pcb_model.pth'
     
-    # 파일이 없을 경우 구글 드라이브에서 다운로드
+    # 파일이 없으면 구글 드라이브에서 다운로드
     if not os.path.exists(model_path):
-        with st.spinner('구글 드라이브에서 모델 파일을 가져오고 있습니다. 잠시만 기다려 주세요...'):
-            # 구글 드라이브 공유 링크의 ID 부분만 사용
+        with st.spinner('구글 드라이브에서 모델 가중치를 다운로드 중입니다... (최초 1회)'):
             file_id = '1RxWWMmFJwNonYVS-FSRzYeSML-pBb5FN'
             url = f'https://drive.google.com/uc?id={file_id}'
             try:
                 gdown.download(url, model_path, quiet=False)
             except Exception as e:
-                st.error(f"모델 다운로드 중 오류 발생: {e}")
+                st.error(f"다운로드 중 오류가 발생했습니다: {e}")
                 return None
 
-    # 모델 구조 정의 및 가중치 로드
+    # 모델 구조 생성 및 가중치 입히기
     m = models.resnet18(weights=None)
     m.fc = nn.Linear(m.fc.in_features, 2)
     m.load_state_dict(torch.load(model_path, map_location='cpu'))
-    m.eval() # 평가 모드 설정
-    return m
-    
-    m = models.resnet18(weights=None) # 최신 버전 표기법
-    m.fc = nn.Linear(m.fc.in_features, 2)
-    m.load_state_dict(torch.load(model_path, map_location='cpu'))
+    m.eval()
     return m
 
 model = load_model()
 
-# 모델 로드 성공 시에만 진행
+# 모델 로드가 완료된 경우에만 UI 출력
 if model:
     transform = transforms.Compose([
         transforms.Resize((224, 224)),
@@ -87,7 +78,7 @@ if model:
         img_tensor = transform(image).unsqueeze(0)
         img_tensor.requires_grad = True
         
-        # AI 판독
+        # AI 판독 시작
         output = model(img_tensor)
         probs = torch.nn.functional.softmax(output, dim=1)
         conf, pred = torch.max(probs, 1)
@@ -101,18 +92,9 @@ if model:
         with col2:
             st.subheader("AI 판독 결과")
             
-            # 신뢰도에 따른 분기 처리 (이 부분이 if uploaded_file 안에 있어야 합니다)
             if conf_value < 65.0:
                 st.error("⚠️ 판독 불충분 (Low Confidence)")
-                st.warning("사진의 해상도가 낮거나 대상이 너무 멀리 있습니다.")
-                st.markdown(f"""
-                    <div style='background-color: #fff3cd; padding: 1.5rem; border-radius: 15px; border-left: 5px solid #ffca28; color: black;'>
-                        <strong>검사 실패 사유:</strong> 신뢰도가 {conf_value:.1f}%로 너무 낮습니다.<br><br>
-                        <strong>해결 방법:</strong><br>
-                        1. 결함 부위를 <b>확대 촬영</b>해 주세요.<br>
-                        2. 밝은 조명을 활용해 주세요.
-                    </div>
-                    """, unsafe_allow_html=True)
+                st.info(f"신뢰도가 {conf_value:.1f}%로 너무 낮습니다. 다시 촬영해 주세요.")
             else:
                 res = "⚠️ 결함 발견 (Defect)" if pred.item() == 1 else "✅ 정상 (Normal)"
                 color = "#E53935" if pred.item() == 1 else "#43A047"
@@ -120,7 +102,7 @@ if model:
                 st.metric("신뢰도 (Confidence)", f"{conf_value:.2f}%")
                 st.progress(conf.item())
 
-                # Grad-CAM 결과 출력
+                # Grad-CAM 시각화
                 heatmap = get_gradcam(model, img_tensor, pred.item())
                 img_np = np.array(image.resize((224, 224)))
                 heatmap_resized = cv2.resize(heatmap, (224, 224))
@@ -129,3 +111,6 @@ if model:
                 
                 st.write("---")
                 st.subheader("판단 근거 시각화 (Grad-CAM)")
+                st.image(overlay, caption="빨간색/노란색 영역이 AI가 집중한 부분입니다.", use_container_width=True)
+    else:
+        st.info("왼쪽 사이드바에서 이미지를 업로드해 주세요.")
