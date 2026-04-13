@@ -98,7 +98,7 @@ if uploaded_file:
         with col_res:
             # 박스 크기를 줄이고 테두리 위주로 디자인
             st.markdown(f"""
-                <div style="border: 2px solid {res_color}; padding: 10px; border-radius: 10px; text-align: center;">
+                <div style="border: 2px solid {res_color}; padding: 5px; border-radius: 10px; text-align: center;">
                     <h2 style="color: {res_color}; margin: 0;">{res_icon} {res_text}</h2>
                 </div>
             """, unsafe_allow_html=True)
