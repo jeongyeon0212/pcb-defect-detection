@@ -39,11 +39,31 @@ def get_gradcam(model, img_tensor, label_idx):
 
 # 모델 로드 (파일 유무 체크 추가)
 @st.cache_resource
+import gdown
+
+# 모델 로드 (구글 드라이브에서 다운로드 로직 추가)
+@st.cache_resource
 def load_model():
     model_path = 'pcb_model.pth'
+    
+    # 파일이 없을 경우 구글 드라이브에서 다운로드
     if not os.path.exists(model_path):
-        st.error(f"❌ 모델 파일('{model_path}')을 찾을 수 없습니다. 경로를 확인해 주세요.")
-        return None
+        with st.spinner('구글 드라이브에서 모델 파일을 가져오고 있습니다. 잠시만 기다려 주세요...'):
+            # 구글 드라이브 공유 링크의 ID 부분만 사용
+            file_id = '1RxWWMmFJwNonYVS-FSRzYeSML-pBb5FN'
+            url = f'https://drive.google.com/uc?id={file_id}'
+            try:
+                gdown.download(url, model_path, quiet=False)
+            except Exception as e:
+                st.error(f"모델 다운로드 중 오류 발생: {e}")
+                return None
+
+    # 모델 구조 정의 및 가중치 로드
+    m = models.resnet18(weights=None)
+    m.fc = nn.Linear(m.fc.in_features, 2)
+    m.load_state_dict(torch.load(model_path, map_location='cpu'))
+    m.eval() # 평가 모드 설정
+    return m
     
     m = models.resnet18(weights=None) # 최신 버전 표기법
     m.fc = nn.Linear(m.fc.in_features, 2)
