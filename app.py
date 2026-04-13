@@ -62,15 +62,18 @@ def load_model():
     return m
 
 model = load_model()
+if 'retry_done' not in st.session_state:
+    st.session_state.retry_done = False
 
 # 모델 로드가 완료된 경우에만 UI 출력
 if model:
     transform = transforms.Compose([
-        transforms.Resize((224, 224)),
+        transforms.Grayscale(num_output_channels=3), # 컬러를 흑백으로 (중요!)
+        transforms.Resize(400),                      # 전체적으로 키운 뒤
+        transforms.CenterCrop(224),                  # 중앙부만 줌인(Zoom-in)
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
-
     uploaded_file = st.sidebar.file_uploader("PCB 이미지 업로드", type=["jpg", "png", "jpeg"])
 
     if uploaded_file:
@@ -94,7 +97,7 @@ if model:
             
             if conf_value < 65.0:
                 st.error("⚠️ 판독 불충분 (Low Confidence)")
-                st.info(f"신뢰도가 {conf_value:.1f}%로 너무 낮습니다. 다시 촬영해 주세요.")
+                st.info(f"다시 촬영 후 업로드 해주세요.")
             else:
                 res = "⚠️ 결함 발견 (Defect)" if pred.item() == 1 else "✅ 정상 (Normal)"
                 color = "#E53935" if pred.item() == 1 else "#43A047"
