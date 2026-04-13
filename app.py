@@ -76,42 +76,41 @@ if uploaded_file:
     conf, pred = torch.max(probs, 1)
     conf_value = conf.item() * 100
 
+
+    # 1. 결과 영역 (슬림 버전)
     # ---------------------------------------------------------
-    # 1. 결과 영역 (최상단 배치)
-    # ---------------------------------------------------------
-    st.markdown("### 📋 AI 판독 결과")
+    st.markdown("### 📋 AI 판독 리포트")
     
-    # 신뢰도 낮을 때의 처리
     if conf_value < 70.0 and not st.session_state.retry_done:
         st.error(f"⚠️ 판독 불충분 (신뢰도: {conf_value:.1f}%)")
-        st.warning("사진이 선명하지 않거나 학습 데이터와 다를 수 있습니다. 다시 촬영을 권장합니다.")
+        st.info("사진을 더 가깝고 선명하게 찍어주시면 정확도가 올라갑니다.")
         if st.button("무시하고 결과 바로 보기"):
             st.session_state.retry_done = True
             st.rerun()
     else:
-        # 최종 결과 표시 (신뢰도가 높거나 무시 버튼을 눌렀을 때)
-        res_text = "⚠️ 결함 발견 (Defect)" if pred.item() == 1 else "✅ 정상 (Normal)"
+        res_text = "결함 발견 (Defect)" if pred.item() == 1 else "정상 (Normal)"
         res_color = "#E53935" if pred.item() == 1 else "#43A047"
+        res_icon = "⚠️" if pred.item() == 1 else "✅"
         
-        # 큰 폰트로 결과 강조
-        st.markdown(f"""
-            <div style="background-color: {res_color}; padding: 20px; border-radius: 10px; text-align: center;">
-                <h1 style="color: white; margin: 0;">{res_text}</h1>
-            </div>
-        """, unsafe_allow_html=True)
+        # 가로로 배치: 결과 텍스트와 신뢰도를 한 줄에 표시
+        col_res, col_met = st.columns([2, 1])
         
-        # 신뢰도 메트릭
-        c1, c2 = st.columns([1, 3])
-        with c1:
+        with col_res:
+            # 박스 크기를 줄이고 테두리 위주로 디자인
+            st.markdown(f"""
+                <div style="border: 2px solid {res_color}; padding: 10px; border-radius: 10px; text-align: center;">
+                    <h2 style="color: {res_color}; margin: 0;">{res_icon} {res_text}</h2>
+                </div>
+            """, unsafe_allow_html=True)
+            
+        with col_met:
             st.metric("AI 신뢰도", f"{conf_value:.2f}%")
-        with c2:
-            st.write("") # 간격 맞춤
-            st.progress(conf.item())
 
-        st.session_state.retry_done = False # 결과 출력 후 상태 초기화
+        st.progress(conf.item())
+        st.session_state.retry_done = False 
 
-        st.write("---") # 구분선
-
+        st.write("") # 약간의 간격
+        st.write("---")
         # ---------------------------------------------------------
         # 2. 이미지 및 시각화 영역 (하단 배치)
         # ---------------------------------------------------------
