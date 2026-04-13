@@ -118,15 +118,15 @@ if model:
             st.session_state.retry_done = False
 
 
-                # Grad-CAM 시각화
-                heatmap = get_gradcam(model, img_tensor, pred.item())
-                img_np = np.array(image.resize((224, 224)))
-                heatmap_resized = cv2.resize(heatmap, (224, 224))
-                heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap_resized), cv2.COLORMAP_JET)
-                overlay = cv2.addWeighted(img_np, 0.6, heatmap_color, 0.4, 0)
+            # Grad-CAM 시각화
+            heatmap = get_gradcam(model, img_tensor, pred.item())
+            img_np = np.array(image.resize((224, 224)))
+            heatmap_resized = cv2.resize(heatmap, (224, 224))
+            heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap_resized), cv2.COLORMAP_JET)
+            overlay = cv2.addWeighted(img_np, 0.6, heatmap_color, 0.4, 0)
                 
-                st.write("---")
-                st.subheader("판단 근거 시각화 (Grad-CAM)")
-                st.image(overlay, caption="빨간색/노란색 영역이 AI가 집중한 부분입니다.", use_container_width=True)
+            st.write("---")
+            st.subheader("판단 근거 시각화 (Grad-CAM)")
+            st.image(overlay, caption="빨간색/노란색 영역이 AI가 집중한 부분입니다.", use_container_width=True)
     else:
         st.info("왼쪽 사이드바에서 이미지를 업로드해 주세요.")
